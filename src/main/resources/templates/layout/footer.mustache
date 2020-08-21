@@ -1,0 +1,173 @@
+
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+<!-- 절대 경로로 시작되는데 스프링부트는 기본적으로 src/main/resources/static 에 위치한 -->
+<!-- 자바스크립트, css, 이미지 등 정적 파일들은 URL에서 /로 설정됨 -->
+
+<!-- index.js 추가 -->
+<!--<script src="src/main/resources/static/js/app/index.js"></script>-->
+
+<script>
+function objToJson(formData){
+    var data = formData;
+    var obj = {};
+
+    $.each(data, function(idx, ele){
+    obj[ele.name] = ele.value;
+    });
+
+  return obj;
+}
+
+  function join_ajax(){
+    var datas = objToJson($("form[name=join]").serializeArray());
+
+    $.ajax({
+            type : 'POST',
+            url : 'http://localhost:8082/join',
+            data : JSON.stringify(datas),
+            dataType : 'json',
+            contentType : "application/json",
+            error: function(xhr, status, error){
+                alert(error);
+            },
+            success : function(json){
+                alert(json)
+            },
+        });
+    }
+
+
+  function loginCustom_ajax(){
+    var datas = objToJson($("form[name=loginCustom]").serializeArray());
+
+        $.ajax({
+            type : 'POST',
+            url : 'http://localhost:8082/loginCustom',
+            data : JSON.stringify(datas),
+            dataType : 'text',  //위와 같이 dataType:json 일 경우 json 형태로 맞춰서 데이터를 받지 못해 오류 발생
+            contentType : "application/json",
+            error: function(xhr, status, error){
+                alert(error);
+            },
+            success : function(token){
+                console.log(token);
+                //토큰을 저장하는 2가지 방법 - 1. 로컬스토리지 or 세션스토리지
+                //HTML5부터 브라우저에 5MB의 용량을 사용할 수 있는 공간으로 쿠키보다 보안이 좀더 우수하다.
+                //세션스토리지는 브라우저가 꺼지면 데이터가 삭제 된다는 차이점이 있다. 하지만 단점이 있는데
+                //자바스크립트로 쉽게 저장하고 가져오기 때문에, 이는 XSS라는 js 제어 공격이 가능하다는 점이다.
+                localStorage.setItem("token", token);
+
+                //2. 쿠키에 저장
+                //서버측에서 HTTP set-Cookie 헤더를 통해서 토큰을 보낸다. 브라우저는 이를 통해 쿠키를 생성하고 토큰을 저장
+                //이후 해당 API에 요청을 하게 될 때에는 브라우저가 자동으로 이 쿠키를 실어서 보낸다. 간단하다.
+                //쿠키가 스토리지보다 더 좋은점이 있는데 js로 인한 조작을 옵션 설정으로 막을 수 있다.
+                //쿠키 생성시 HttpOnly를 주면 js로 접근이 불가하며 Secure 옵션을 추가하면 쿠키는 HTTPS 통신으로만 전송되어 한층 더 보안수준이 높아진다.
+                //이렇게만 보면 스토리지보다 무조건 좋아보이지만 CSRF라는 공격에는 또 취약하게되는 점이있다.
+                var expireDay = 24*60*60*1000; //1일
+                document.cookie = "X-AUTH-TOKEN=" + token + expireDay +"; path=/";
+
+            },
+        });
+    }
+
+  function setCookie(name, value, days) {
+          if (days) {
+                  var date = new Date();
+                  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                  var expires = "; expires=" + date.toGMTString();
+          } else {
+                 var expires = "";
+          }
+          document.cookie = name + "=" + value + expires + "; path=/";
+  }
+
+  function getCookie(name) {
+          var i, x, y, ARRcookies = document.cookie.split(";");
+
+          for (i = 0; i < ARRcookies.length; i++) {
+                  x = ARRcookies[i].substr(0, ARRcookies[i].indexOf("="));
+                  y = ARRcookies[i].substr(ARRcookies[i].indexOf("=") + 1);
+
+                  x = x.replace(/^\s+|\s+$/g, "");
+
+                  if (x == name) {
+                          return unescape(y);
+                  }
+          }
+  }
+
+  $('#btn-save').on('click', function() {
+        save();
+    });
+
+  $('#btn-update').on('click', function() {
+        update();
+    });
+
+  $('#btn-delete').on('click', function() {
+        delete2();
+    });
+
+  function save() {
+    var data = {
+          title: $('#title').val(),
+          author: $('#author').val(),
+          content: $('#content').val()
+        };
+
+      $.ajax({
+        type: 'POST',
+        url: '/api/v1/posts',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify(data)
+      }).done(function(){
+        alert('글이 등록되었습니다.');
+        window.location.href = '/';
+      }).fail(function(error){
+        alert(JSON.stringify(error));
+      });
+  };
+
+  function update(){
+      var data = {
+        title: $('#title').val(),
+        content: $('#content').val()
+      };
+
+      var id = $('#id').val();
+      $.ajax({
+        type:"PUT",
+        url: '/api/v1/posts/'+id,
+        dataType : 'json',
+        contentType : 'application/json; charset=utf-8',
+        data : JSON.stringify(data),
+      }).done(function(){
+        alert("글이 수정되었습니다.");
+        window.location.href="/";
+      }).fail(function(error){
+        alert(JSON.stringify(error));
+      });
+  };
+
+  function delete2(){
+    var id = $('#id').val();
+
+    $.ajax({
+      type:'DELETE',
+      url: '/api/v1/posts/'+id,
+      dataType: 'json',
+      contentType: 'application/json; charset=utf-8',
+    }).done(function(){
+      alert('게시글이 삭제되었습니다.');
+      window.location.href = '/';
+    }).fail(function(error){
+      alert(JSON.stringify(error));
+    });
+  };
+</script>
+
+</body>
+</html>
